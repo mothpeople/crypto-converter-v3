@@ -9,14 +9,14 @@ import {
   Moon, 
   Sun, 
   LineChart, 
-  X,
-  Heart // Added Heart icon
+  X
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 // --- CONFIGURATION ---
 // REPLACE THIS WITH YOUR OWN PAYPAL LINK
-const PAYPAL_LINK = 'https://paypal.me/sivarajpragasm'; 
+// 👇 CHANGE THIS LINE 👇
+const PAYPAL_LINK = 'https://paypal.me/YOUR_ACTUAL_USERNAME'; 
 
 const STABLECOINS = [
   'tether',
@@ -178,13 +178,22 @@ export default function App() {
           </div>
           
           <div className="flex gap-2">
-            {/* Donation Button */}
+            {/* Donation Button with PayPal Icon */}
             <button 
               onClick={() => window.open(PAYPAL_LINK, '_blank')}
-              className={`p-2 rounded-full backdrop-blur-md shadow-sm transition-all ${darkMode ? 'bg-black/40 text-pink-400 hover:bg-black/60' : 'bg-white/80 text-pink-500 hover:bg-white'}`}
-              title="Donate"
+              className={`p-2 rounded-full backdrop-blur-md shadow-sm transition-all ${darkMode ? 'bg-black/40 text-blue-400 hover:bg-black/60' : 'bg-white/80 text-[#003087] hover:bg-white'}`}
+              title="Donate via PayPal"
             >
-              <Heart size={16} fill="currentColor" className="opacity-80" />
+              <svg 
+                viewBox="0 0 24 24" 
+                width="16" 
+                height="16" 
+                fill="currentColor" 
+                xmlns="http://www.w3.org/2000/svg"
+                className="opacity-90"
+              >
+                 <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.946 5.05-4.336 6.795-9.077 6.795h-2.13c-.527 0-.96.405-1.041.92l-.808 4.921c-.06.367-.376.629-.75.666z" />
+              </svg>
             </button>
 
             <button 
