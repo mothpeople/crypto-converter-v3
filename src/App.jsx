@@ -16,7 +16,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 // --- CONFIGURATION ---
 // REPLACE THIS WITH YOUR OWN PAYPAL LINK
 // 👇 CHANGE THIS LINE 👇
-const PAYPAL_LINK = 'https://paypal.me/YOUR_ACTUAL_USERNAME'; 
+const PAYPAL_LINK = 'https://paypal.me/sivarajpragasm'; 
 
 const STABLECOINS = [
   'tether',
@@ -166,9 +166,11 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center font-sans sm:p-4 transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    // FIX: Changed min-h-screen to h-[100dvh] and added overflow-hidden to lock the viewport
+    <div className={`h-[100dvh] w-full overflow-hidden flex items-center justify-center font-sans sm:p-4 transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       
-      <div className={`w-full h-screen sm:h-auto sm:max-w-md ${darkMode ? 'bg-slate-900' : 'bg-white'} sm:rounded-3xl sm:shadow-2xl overflow-hidden relative border ${darkMode ? 'border-gray-800' : 'border-gray-100'} flex flex-col transition-colors duration-300`}>
+      {/* FIX: Changed h-screen to h-full to respect the parent's locked height */}
+      <div className={`w-full h-full sm:h-auto sm:max-w-md ${darkMode ? 'bg-slate-900' : 'bg-white'} sm:rounded-3xl sm:shadow-2xl overflow-hidden relative border ${darkMode ? 'border-gray-800' : 'border-gray-100'} flex flex-col transition-colors duration-300`}>
         
         {/* Header */}
         <div className="absolute top-0 left-0 w-full p-4 pt-6 flex justify-between items-center z-10">
