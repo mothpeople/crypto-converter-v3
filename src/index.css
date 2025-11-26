@@ -1,0 +1,7 @@
+@tailwind base;
+    @tailwind components;
+    @tailwind utilities;
+http://googleusercontent.com/immersive_entry_chip/1
+    body {
+      background-color: #f9fafb; /* Matches bg-gray-50 */
+    }
