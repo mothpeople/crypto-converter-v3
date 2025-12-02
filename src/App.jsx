@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowDown, 
+  ArrowUpDown, 
   RefreshCcw, 
   Info, 
   Wallet, 
@@ -14,26 +15,12 @@ import {
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 // --- CONFIGURATION ---
-// REPLACE THIS WITH YOUR OWN PAYPAL LINK
-// 👇 CHANGE THIS LINE 👇
 const PAYPAL_LINK = 'https://paypal.me/sivarajpragasm'; 
 
 const STABLECOINS = [
-  'tether',
-  'usd-coin',
-  'dai',
-  'first-digital-usd',
-  'ethena-usde',
-  'usdd',
-  'true-usd',
-  'paxos-standard',
-  'binance-usd',
-  'frax',
-  'paypal-usd',
-  'sky-dollar', 
-  'gemini-dollar',
-  'liquity-usd',
-  's-usd'
+  'tether', 'usd-coin', 'dai', 'first-digital-usd', 'ethena-usde', 'usdd', 
+  'true-usd', 'paxos-standard', 'binance-usd', 'frax', 'paypal-usd', 
+  'sky-dollar', 'gemini-dollar', 'liquity-usd', 's-usd'
 ];
 
 const PRIORITY_COINS = ['bitcoin', 'ethereum', 'ripple'];
@@ -51,10 +38,15 @@ const FIAT_OPTIONS = [
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(false);
+  
+  // "amount" is generic now (can be fiat OR crypto depending on direction)
+  const [amount, setAmount] = useState('0'); 
+  const [isCryptoToFiat, setIsCryptoToFiat] = useState(false); // New State for Swap
+
   const [fiatCurrency, setFiatCurrency] = useState(FIAT_OPTIONS[0]);
-  const [fiatAmount, setFiatAmount] = useState('0'); 
   const [cryptos, setCryptos] = useState([]);
   const [selectedCrypto, setSelectedCrypto] = useState(null);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -64,7 +56,7 @@ export default function App() {
   const [chartData, setChartData] = useState([]);
   const [chartLoading, setChartLoading] = useState(false);
 
-  // Fetch crypto data from CoinGecko
+  // Fetch crypto data
   const fetchData = async () => {
     setLoading(true);
     setError(null);
@@ -73,12 +65,9 @@ export default function App() {
         `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${fiatCurrency.code.toLowerCase()}&order=market_cap_desc&per_page=150&page=1&sparkline=false`
       );
 
-      if (!response.ok) {
-        throw new Error('Rate limit exceeded. Please wait a moment.');
-      }
+      if (!response.ok) throw new Error('Rate limit exceeded. Please wait a moment.');
 
       const data = await response.json();
-
       const processedData = data
         .filter((coin) => {
           const isStable = STABLECOINS.includes(coin.id) || coin.symbol.toLowerCase().includes('usd');
@@ -89,11 +78,9 @@ export default function App() {
         .sort((a, b) => {
           const indexA = PRIORITY_COINS.indexOf(a.id);
           const indexB = PRIORITY_COINS.indexOf(b.id);
-
           if (indexA !== -1 && indexB !== -1) return indexA - indexB;
           if (indexA !== -1) return -1;
           if (indexB !== -1) return 1;
-          
           return a.name.localeCompare(b.name);
         });
 
@@ -105,7 +92,6 @@ export default function App() {
         const updatedCrypto = processedData.find(c => c.id === selectedCrypto.id);
         if (updatedCrypto) setSelectedCrypto(updatedCrypto);
       }
-
       setLastUpdated(new Date());
     } catch (err) {
       setError(err.message);
@@ -134,42 +120,49 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [fiatCurrency]);
+  useEffect(() => { fetchData(); }, [fiatCurrency]);
+  useEffect(() => { if (showChart) fetchChartData(); }, [showChart, selectedCrypto]);
 
-  useEffect(() => {
-    if (showChart) {
-      fetchChartData();
-    }
-  }, [showChart, selectedCrypto]);
-
+  // --- CALCULATION LOGIC ---
   const calculateConversion = () => {
-    if (!fiatAmount || !selectedCrypto) return '0.00';
-    const amount = parseFloat(fiatAmount.replace(/,/g, ''));
-    if (isNaN(amount)) return '0.00';
+    if (!amount || !selectedCrypto) return '0.00';
+    const val = parseFloat(amount.replace(/,/g, ''));
+    if (isNaN(val)) return '0.00';
     
-    const value = amount / selectedCrypto.current_price;
+    let result;
     
-    if (value === 0) return '0.00';
-    if (value < 0.00001) return value.toFixed(8);
-    if (value < 0.01) return value.toFixed(6);
-    if (value < 1) return value.toFixed(4);
-    return value.toFixed(2);
+    if (isCryptoToFiat) {
+      // Crypto -> Fiat: Amount * Price
+      result = val * selectedCrypto.current_price;
+      // Fiat formatting (2 decimals usually)
+      return result.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+      // Fiat -> Crypto: Amount / Price
+      result = val / selectedCrypto.current_price;
+      // Crypto formatting (up to 8 decimals)
+      if (result === 0) return '0.00';
+      if (result < 0.00001) return result.toFixed(8);
+      if (result < 0.01) return result.toFixed(6);
+      if (result < 1) return result.toFixed(4);
+      return result.toFixed(4);
+    }
   };
 
-  const handleFiatAmountChange = (e) => {
+  const handleAmountChange = (e) => {
     const val = e.target.value;
     if (val === '' || /^\d*\.?\d*$/.test(val)) {
-      setFiatAmount(val);
+      setAmount(val);
     }
+  };
+
+  const handleSwap = () => {
+    setIsCryptoToFiat(!isCryptoToFiat);
+    // Optional: Reset amount or keep it? Keeping it feels faster for users.
   };
 
   return (
-    // FIX: Changed min-h-screen to h-[100dvh] and added overflow-hidden to lock the viewport
     <div className={`h-[100dvh] w-full overflow-hidden flex items-center justify-center font-sans sm:p-4 transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       
-      {/* FIX: Changed h-screen to h-full to respect the parent's locked height */}
       <div className={`w-full h-full sm:h-auto sm:max-w-md ${darkMode ? 'bg-slate-900' : 'bg-white'} sm:rounded-3xl sm:shadow-2xl overflow-hidden relative border ${darkMode ? 'border-gray-800' : 'border-gray-100'} flex flex-col transition-colors duration-300`}>
         
         {/* Header */}
@@ -180,22 +173,12 @@ export default function App() {
           </div>
           
           <div className="flex gap-2">
-            {/* Donation Button with PayPal Icon */}
+            {/* UPDATED: Donate Button (Blue, No Heart) */}
             <button 
               onClick={() => window.open(PAYPAL_LINK, '_blank')}
-              className={`p-2 rounded-full backdrop-blur-md shadow-sm transition-all ${darkMode ? 'bg-black/40 text-blue-400 hover:bg-black/60' : 'bg-white/80 text-[#003087] hover:bg-white'}`}
-              title="Donate via PayPal"
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full backdrop-blur-md shadow-sm transition-all text-xs font-bold ${darkMode ? 'bg-black/40 text-indigo-400 hover:bg-black/60' : 'bg-white/80 text-indigo-600 hover:bg-white'}`}
             >
-              <svg 
-                viewBox="0 0 24 24" 
-                width="16" 
-                height="16" 
-                fill="currentColor" 
-                xmlns="http://www.w3.org/2000/svg"
-                className="opacity-90"
-              >
-                 <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.946 5.05-4.336 6.795-9.077 6.795h-2.13c-.527 0-.96.405-1.041.92l-.808 4.921c-.06.367-.376.629-.75.666z" />
-              </svg>
+              <span>Donate</span>
             </button>
 
             <button 
@@ -215,7 +198,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* TOP HALF: FIAT */}
+        {/* --- TOP HALF (Input) --- */}
         <div className={`flex-1 ${darkMode ? 'bg-slate-900' : 'bg-gradient-to-br from-indigo-50 to-blue-50'} p-8 pt-20 flex flex-col justify-center relative transition-colors duration-300`}>
           <label className={`text-xs font-bold ${darkMode ? 'text-indigo-300' : 'text-indigo-400'} uppercase tracking-wider mb-2`}>You Pay</label>
           
@@ -223,41 +206,90 @@ export default function App() {
             <input
               type="text"
               inputMode="decimal"
-              value={fiatAmount}
-              onChange={handleFiatAmountChange}
+              value={amount}
+              // UPDATED: Always clear on focus (tap), regardless of current value
+              onFocus={() => setAmount('')}
+              // Restore 0 on blur if empty
+              onBlur={() => amount === '' && setAmount('0')}
+              onChange={handleAmountChange}
               className={`w-full bg-transparent text-4xl font-bold ${darkMode ? 'text-white placeholder-gray-600' : 'text-indigo-950 placeholder-indigo-200'} outline-none border-none p-0 transition-colors`}
               placeholder="0"
             />
+            
+            {/* SELECTOR */}
             <div className="relative group shrink-0">
-              <select
-                value={fiatCurrency.code}
-                onChange={(e) => setFiatCurrency(FIAT_OPTIONS.find(f => f.code === e.target.value))}
-                className={`appearance-none py-2 pl-3 pr-8 rounded-xl shadow-sm font-bold cursor-pointer focus:ring-2 focus:outline-none border ${darkMode ? 'bg-gray-800 text-white border-gray-700 focus:ring-indigo-500' : 'bg-white text-gray-700 border-indigo-100 focus:ring-indigo-200'}`}
-              >
-                {FIAT_OPTIONS.map((f) => (
-                  <option key={f.code} value={f.code}>
-                    {f.code}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+              
+              {/* Floating Icon inside Selector */}
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center z-10">
+                {isCryptoToFiat ? (
+                   selectedCrypto?.image ? (
+                      <img src={selectedCrypto.image} alt={selectedCrypto.name} className="w-5 h-5 rounded-full" />
+                   ) : (
+                      <Wallet size={16} className={darkMode ? 'text-gray-400' : 'text-indigo-400'} />
+                   )
+                ) : (
+                   <span className="text-lg leading-none">{fiatCurrency.flag}</span>
+                )}
+              </div>
+
+              {/* GHOST LABEL: Shows Short Text (Symbol) on the screen */}
+              {isCryptoToFiat && selectedCrypto && (
+                <div className={`absolute inset-0 pl-10 pr-8 flex items-center font-bold pointer-events-none z-10 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
+                  {selectedCrypto.symbol.toUpperCase()}
+                </div>
+              )}
+
+              {isCryptoToFiat ? (
+                 // CRYPTO SELECTOR (Transparent Text, Full Options)
+                 <select
+                  value={selectedCrypto?.id || ''}
+                  onChange={(e) => setSelectedCrypto(cryptos.find(c => c.id === e.target.value))}
+                  className={`appearance-none py-2 pl-10 pr-8 rounded-xl shadow-sm font-bold cursor-pointer focus:ring-2 focus:outline-none border max-w-[140px] truncate relative z-0 ${isCryptoToFiat ? 'text-transparent' : ''} ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-indigo-100'}`}
+                >
+                  {cryptos.map((coin) => (
+                    <option key={coin.id} value={coin.id} className={darkMode ? 'bg-gray-800 text-white' : 'text-gray-900'}>
+                      {coin.name} ({coin.symbol.toUpperCase()})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                // FIAT SELECTOR
+                <select
+                  value={fiatCurrency.code}
+                  onChange={(e) => setFiatCurrency(FIAT_OPTIONS.find(f => f.code === e.target.value))}
+                  className={`appearance-none py-2 pl-10 pr-8 rounded-xl shadow-sm font-bold cursor-pointer focus:ring-2 focus:outline-none border ${darkMode ? 'bg-gray-800 text-white border-gray-700' : 'bg-white text-gray-700 border-indigo-100'}`}
+                >
+                  {FIAT_OPTIONS.map((f) => (
+                    <option key={f.code} value={f.code}>{f.code}</option>
+                  ))}
+                </select>
+              )}
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 z-10">
                 <ArrowDown size={14} strokeWidth={3} />
               </div>
             </div>
           </div>
 
           <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-indigo-400'} font-medium flex items-center gap-2`}>
-            <span>{fiatCurrency.flag} {fiatCurrency.name}</span>
+            {isCryptoToFiat ? (
+               <span>{selectedCrypto ? selectedCrypto.name : 'Select Coin'}</span>
+            ) : (
+               <span>{fiatCurrency.name}</span>
+            )}
           </div>
 
+          {/* SWAP BUTTON */}
           <div className="absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 z-20">
-            <div className={`${darkMode ? 'bg-gray-800 border-slate-900 text-indigo-400' : 'bg-white border-gray-50 text-indigo-600'} p-2 rounded-full shadow-lg border-4 transition-colors duration-300`}>
-              <ArrowDown size={20} strokeWidth={2.5} />
-            </div>
+            <button 
+              onClick={handleSwap}
+              className={`${darkMode ? 'bg-gray-800 border-slate-900 text-indigo-400 hover:bg-gray-700' : 'bg-white border-gray-50 text-indigo-600 hover:bg-gray-50'} p-2 rounded-full shadow-lg border-4 transition-colors duration-300 cursor-pointer active:scale-95`}
+            >
+              <ArrowUpDown size={20} strokeWidth={2.5} />
+            </button>
           </div>
         </div>
 
-        {/* BOTTOM HALF: CRYPTO */}
+        {/* --- BOTTOM HALF (Output) --- */}
         <div className={`flex-1 ${darkMode ? 'bg-black' : 'bg-indigo-950'} p-8 pt-16 text-white flex flex-col justify-between transition-colors duration-300`}>
           
           <div>
@@ -287,28 +319,46 @@ export default function App() {
                 </div>
 
                 <div className="relative mb-6">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    {selectedCrypto?.image ? (
-                        <img src={selectedCrypto.image} alt={selectedCrypto.name} className="w-6 h-6 rounded-full" />
-                    ) : (
-                        <Wallet size={20} className="text-indigo-400" />
-                    )}
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center">
+                     {/* Show Crypto Icon or Fiat Flag */}
+                     {isCryptoToFiat ? (
+                        <span className="text-lg leading-none">{fiatCurrency.flag}</span>
+                     ) : (
+                        selectedCrypto?.image ? (
+                            <img src={selectedCrypto.image} alt={selectedCrypto.name} className="w-6 h-6 rounded-full" />
+                        ) : (
+                            <Wallet size={20} className="text-indigo-400" />
+                        )
+                     )}
                   </div>
                   
-                  <select
-                    value={selectedCrypto?.id || ''}
-                    onChange={(e) => {
-                        const coin = cryptos.find(c => c.id === e.target.value);
-                        setSelectedCrypto(coin);
-                    }}
-                    className={`w-full appearance-none ${darkMode ? 'bg-gray-900 border-gray-800 hover:bg-gray-800' : 'bg-indigo-900/50 border-indigo-800 hover:bg-indigo-900'} transition-colors border text-white py-4 pl-12 pr-10 rounded-2xl cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium`}
-                  >
-                    {cryptos.map((coin) => (
-                      <option key={coin.id} value={coin.id} className="bg-gray-900 text-white">
-                        {coin.name} ({coin.symbol.toUpperCase()})
-                      </option>
-                    ))}
-                  </select>
+                  {isCryptoToFiat ? (
+                    // FIAT SELECTOR (When Swapped)
+                    <select
+                      value={fiatCurrency.code}
+                      onChange={(e) => setFiatCurrency(FIAT_OPTIONS.find(f => f.code === e.target.value))}
+                      className={`w-full appearance-none ${darkMode ? 'bg-gray-900 border-gray-800 hover:bg-gray-800' : 'bg-indigo-900/50 border-indigo-800 hover:bg-indigo-900'} transition-colors border text-white py-4 pl-12 pr-10 rounded-2xl cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium`}
+                    >
+                      {FIAT_OPTIONS.map((f) => (
+                        <option key={f.code} value={f.code} className="bg-gray-900 text-white">
+                          {f.name} ({f.code})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                     // CRYPTO SELECTOR (Normal)
+                    <select
+                      value={selectedCrypto?.id || ''}
+                      onChange={(e) => setSelectedCrypto(cryptos.find(c => c.id === e.target.value))}
+                      className={`w-full appearance-none ${darkMode ? 'bg-gray-900 border-gray-800 hover:bg-gray-800' : 'bg-indigo-900/50 border-indigo-800 hover:bg-indigo-900'} transition-colors border text-white py-4 pl-12 pr-10 rounded-2xl cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium`}
+                    >
+                      {cryptos.map((coin) => (
+                        <option key={coin.id} value={coin.id} className="bg-gray-900 text-white">
+                          {coin.name} ({coin.symbol.toUpperCase()})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-400">
                     <ArrowDown size={16} />
@@ -350,9 +400,9 @@ export default function App() {
           </div>
         </div>
 
-        {/* CHART MODAL */}
+        {/* CHART MODAL - Updated to Center on screen */}
         {showChart && selectedCrypto && (
-          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className={`w-full max-w-sm ${darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'} rounded-2xl p-4 shadow-2xl relative`}>
               <div className="flex justify-between items-center mb-4">
                   <div>
