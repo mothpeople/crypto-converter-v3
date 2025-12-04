@@ -17,13 +17,35 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 // --- CONFIGURATION ---
 const PAYPAL_LINK = 'https://paypal.me/sivarajpragasm'; 
 
-const STABLECOINS = [
+// Specific IDs to block (Stablecoins + Specific Junk Tokens you mentioned)
+const BLOCKED_IDS = [
+  // Stablecoins
   'tether', 'usd-coin', 'dai', 'first-digital-usd', 'ethena-usde', 'usdd', 
   'true-usd', 'paxos-standard', 'binance-usd', 'frax', 'paypal-usd', 
-  'sky-dollar', 'gemini-dollar', 'liquity-usd', 's-usd'
+  'sky-dollar', 'gemini-dollar', 'liquity-usd', 's-usd', 'nusd', 'usds', 'susde',
+  
+  // Specific requests to remove
+  'jupiter-perpetuals-liquidity-provider-token', // JLP
+  'hashnote-usyc', 'usyc',                       // Circle USYC / Hashnote
+  'clbtc',                                       // CLBTC
+  'ignition-fbtc', 'fbtc',                       // FBTC
+  'solv-btc', 'solvbtc',                         // SolvBTC
+  'coinbase-wrapped-btc', 'cbbtc',               // cbBTC
+  'bitcoin-b-bridged', 'btc-b',                  // Bridged BTC
+  'wrapped-bitcoin', 'wbtc'                      // Wrapped BTC
 ];
 
-const PRIORITY_COINS = ['bitcoin', 'ethereum', 'ripple'];
+// Keywords to filter out (Staked, Restaked, Bridged, Wrapped, etc.)
+const BLOCKED_KEYWORDS = [
+  'wrapped', 'bridged', 'pegged', 
+  'staked', 'liquid staking', 'restaked',
+  'steth', 'reth', 'wsteth', 'ezeth', 'weeth', 'pufeth', 'meth', 
+  'cbeth', 'wbeth', 'oeth', 'sweth', 'beth', 'ankreth', 'rsreth',
+  'msol', 'jitosol', 'bnsol', 'jupsol', 'infinitesol',
+  'unieth', 'diveth', 'rsweth'
+];
+
+const PRIORITY_COINS = ['bitcoin', 'ethereum', 'ripple', 'solana', 'binancecoin'];
 
 const FIAT_OPTIONS = [
   { code: 'USD', name: 'US Dollar', symbol: '$', flag: '🇺🇸' },
@@ -61,20 +83,40 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
+      // Increased fetch limit to 250 to ensure we have enough valid tokens after filtering
       const response = await fetch(
-        `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${fiatCurrency.code.toLowerCase()}&order=market_cap_desc&per_page=150&page=1&sparkline=false`
+        `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${fiatCurrency.code.toLowerCase()}&order=market_cap_desc&per_page=250&page=1&sparkline=false`
       );
 
       if (!response.ok) throw new Error('Rate limit exceeded. Please wait a moment.');
 
       const data = await response.json();
+      
       const processedData = data
         .filter((coin) => {
-          const isStable = STABLECOINS.includes(coin.id) || coin.symbol.toLowerCase().includes('usd');
-          const isWrapped = coin.name.toLowerCase().includes('wrapped') || coin.id.toLowerCase().includes('wrapped');
-          return !isStable && !isWrapped;
+          const id = coin.id.toLowerCase();
+          const symbol = coin.symbol.toLowerCase();
+          const name = coin.name.toLowerCase();
+
+          // 1. Block specific IDs
+          if (BLOCKED_IDS.includes(id)) return false;
+
+          // 2. Block generic "USD" symbols (usually stablecoins)
+          if (symbol.includes('usd') && !symbol.includes('usdt')) { 
+             // Allow USDT to be caught by BLOCKED_IDS or specific checks if needed, 
+             // but 'usd' usually catches things like 'tusd', 'busd', etc.
+             return false; 
+          }
+
+          // 3. Block by Keywords (Name or Symbol)
+          const isJunk = BLOCKED_KEYWORDS.some(keyword => 
+            name.includes(keyword) || symbol.includes(keyword)
+          );
+          if (isJunk) return false;
+
+          return true;
         })
-        .slice(0, 100)
+        .slice(0, 100) // Take top 100 AFTER filtering
         .sort((a, b) => {
           const indexA = PRIORITY_COINS.indexOf(a.id);
           const indexB = PRIORITY_COINS.indexOf(b.id);
