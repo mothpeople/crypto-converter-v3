@@ -32,13 +32,30 @@ const BLOCKED_IDS = [
   'solv-btc', 'solvbtc',                         // SolvBTC
   'coinbase-wrapped-btc', 'cbbtc',               // cbBTC
   'bitcoin-b-bridged', 'btc-b',                  // Bridged BTC
-  'wrapped-bitcoin', 'wbtc'                      // Wrapped BTC
+  'wrapped-bitcoin', 'wbtc',                     // Wrapped BTC
+  
+  // Latest Additions
+  'weth',                                        // WETH
+  'usdtb',                                       // USDTB
+  'usdt0',                                       // USDT0
+  'tbtc',                                        // TBTC
+  'syrup-usdt', 'syrupusdt',                     // SYRUPUSDT
+  'ustb',                                        // USTB
+  'jaaa',                                        // JAAA
+  'blackrock-usd-institutional-digital-liquidity-fund', 'buidl', // BUIDL
+  'ondo-us-dollar-yield', 'usdy',                // USDY
+  'ondo-short-term-us-government-bond-fund', 'ousg' // OUSG
 ];
 
 // Keywords to filter out (Staked, Restaked, Bridged, Wrapped, etc.)
 const BLOCKED_KEYWORDS = [
+  // Categories
   'wrapped', 'bridged', 'pegged', 
   'staked', 'liquid staking', 'restaked',
+  'treasury', 'securities', 'clo', 'yield', // Added Fund/Securities keywords
+  'real world asset', 'tokenized',
+  
+  // Specific prefixes/suffixes
   'steth', 'reth', 'wsteth', 'ezeth', 'weeth', 'pufeth', 'meth', 
   'cbeth', 'wbeth', 'oeth', 'sweth', 'beth', 'ankreth', 'rsreth',
   'msol', 'jitosol', 'bnsol', 'jupsol', 'infinitesol',
